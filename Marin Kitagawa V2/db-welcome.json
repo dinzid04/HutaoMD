@@ -1,0 +1,74 @@
+{
+  "120363423733340238@g.us": {
+    "welcome": {
+      "enabled": true,
+      "text": "🎉 Selamat datang @user di @group!\n\nSemoga betah ya! 😊",
+      "image": "https://raw.githubusercontent.com/zionjs/whatsapp-media/main/file_1761997287781"
+    },
+    "goodbye": {
+      "enabled": true,
+      "text": "👋 Selamat tinggal @user!\n\nSemoga sukses selalu! 💫",
+      "image": "https://raw.githubusercontent.com/zionjs/whatsapp-media/main/file_1761997163995"
+    }
+  },
+  "120363421641867509@g.us": {
+    "welcome": {
+      "enabled": true,
+      "text": "🎉 Selamat datang @user di @group!\n\nSemoga betah ya! 😊",
+      "image": "https://raw.githubusercontent.com/zionjs/whatsapp-media/main/file_1761997287781"
+    },
+    "goodbye": {
+      "enabled": true,
+      "text": "👋 Selamat tinggal @user!\n\nSemoga sukses selalu! 💫",
+      "image": "https://raw.githubusercontent.com/zionjs/whatsapp-media/main/file_1761997163995"
+    }
+  },
+  "120363422491803981@g.us": {
+    "welcome": {
+      "enabled": true,
+      "text": "selamat datang",
+      "image": "https://raw.githubusercontent.com/zionjs/whatsapp-media/main/file_1761997287781"
+    },
+    "goodbye": {
+      "enabled": true,
+      "text": "selamat tinggal",
+      "image": "https://raw.githubusercontent.com/zionjs/whatsapp-media/main/file_1761997163995"
+    }
+  },
+  "120363421927478377@g.us": {
+    "welcome": {
+      "enabled": true,
+      "text": "setwelcome \nIntro kids @user\n\nNama:\nUmur:\nAskot:\nGender:\n\n*BETAH² YA JING DI KS*",
+      "image": "https://raw.githubusercontent.com/zionjs/whatsapp-media/main/file_1761997287781"
+    },
+    "goodbye": {
+      "enabled": true,
+      "text": "setgoodbye yaudah si, out aja kalo gak betah",
+      "image": "https://raw.githubusercontent.com/zionjs/whatsapp-media/main/file_1761997163995"
+    }
+  },
+  "120363406561253004@g.us": {
+    "welcome": {
+      "enabled": true,
+      "text": "@user\n*Welcome To Komunitas 𝐌𝐂𝟗*\n*Intro Komunitas*\n*Nama:* \n*Gender:* \n*Umur:* \n*Askot:*\n*Link Tiktok(Akun Tiktok):*\n*Jenis Konten:*\n\n*Wajib Cn Tiktok:* 𝐌𝐂𝟗\n*Contoh:(Nama) 𝐌𝐂𝟗*\n*Wajib isi bio:𝐌𝐞𝐦𝐛𝐞𝐫 𝐎𝐟 𝐌𝐂⁹*\n=\n*SIAP MENGIKUTI PERATURAN YANG ADA DI GRUP✅*",
+      "image": "https://files.catbox.moe/dntcx8.jpg"
+    },
+    "goodbye": {
+      "enabled": true,
+      "text": "@user bye bye",
+      "image": "https://files.catbox.moe/wav1qi.jpg"
+    }
+  },
+  "120363402963363528@g.us": {
+    "welcome": {
+      "enabled": true,
+      "text": "🎉 Selamat datang @user di @group!\n\nSemoga betah ya! 😊",
+      "image": "https://raw.githubusercontent.com/zionjs/whatsapp-media/main/file_1761997287781"
+    },
+    "goodbye": {
+      "enabled": true,
+      "text": "👋 Selamat tinggal @user!\n\nSemoga sukses selalu! 💫",
+      "image": "https://raw.githubusercontent.com/zionjs/whatsapp-media/main/file_1761997163995"
+    }
+  }
+}
