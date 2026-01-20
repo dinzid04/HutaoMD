@@ -175,7 +175,7 @@ if (!m.isGroup && from && from.endsWith('@lid')) from = m.chat
    const isGrouP = from.endsWith('@g.us')
    const sender = isGrouP ? (m.key.participant ? m.key.participant : m.participant) : m.key.remoteJid
    const pushname = m.pushName || "No Name"
-   const CMD = (m.xtype === 'conversation' && m.message.conversation) ? m.message.conversation : (m.xtype == 'imageMessage') && m.message.imageMessage.caption ? m.message.imageMessage.caption : (m.xtype == 'videoMessage') && m.message.videoMessage.caption ? m.message.videoMessage.caption : (m.xtype == 'extendedTextMessage') && m.message.extendedTextMessage.text ? m.message.extendedTextMessage.text : (m.xtype == 'buttonsResponseMessage') && m.message.buttonsResponseMessage.selectedButtonId ? m.message.buttonsResponseMessage.selectedButtonId : (m.xtype == 'listResponseMessage') && m.message.listResponseMessage.singleSelectReply.selectedRowId? m.message.listResponseMessage.singleSelectReply.selectedRowId : (m.xtype == 'templateButtonReplyMessage') && m.message.templateButtonReplyMessage.selectedId ? m.message.templateButtonReplyMessage.selectedId : ''.slice(1).trim().split(/ +/).shift().toLowerCase()
+   const CMD = (m.xtype === 'conversation' && m.message.conversation) ? m.message.conversation : (m.xtype == 'imageMessage') && m.message.imageMessage.caption ? m.message.imageMessage.caption : (m.xtype == 'videoMessage') && m.message.videoMessage.caption ? m.message.videoMessage.caption : (m.xtype == 'extendedTextMessage') && m.message.extendedTextMessage.text ? m.message.extendedTextMessage.text : (m.xtype == 'buttonsResponseMessage') && m.message.buttonsResponseMessage.selectedButtonId ? m.message.buttonsResponseMessage.selectedButtonId : (m.xtype == 'listResponseMessage') && m.message.listResponseMessage.singleSelectReply.selectedRowId? m.message.listResponseMessage.singleSelectReply.selectedRowId : (m.xtype == 'templateButtonReplyMessage') && m.message.templateButtonReplyMessage.selectedId ? m.message.templateButtonReplyMessage.selectedId : (m.xtype === 'interactiveResponseMessage') ? (JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id) : ''.slice(1).trim().split(/ +/).shift().toLowerCase()
 let pfxConf = JSON.parse(fs.readFileSync('./database/prefix.json'));
 let prefix;
 if (pfxConf.mode === 'noprefix') {
@@ -189,17 +189,6 @@ global.prefix = prefix;
 let chatmessage = (m.xtype === 'conversation' && m.message.conversation) ? m.message.conversation : (m.xtype == 'imageMessage') ? m.message.imageMessage.caption : (m.xtype == 'videoMessage') ? m.message.videoMessage.caption : (m.xtype == 'extendedTextMessage') ? m.message.extendedTextMessage.text : (m.xtype == 'buttonsResponseMessage') ? m.message.buttonsResponseMessage.selectedButtonId : (m.xtype == 'listResponseMessage') ? m.message.listResponseMessage.singleSelectReply.selectedRowId : (m.xtype == 'templateButtonReplyMessage') ? m.message.templateButtonReplyMessage.selectedId : (m.xtype === 'interactiveResponseMessage') ? (JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id) : (m.xtype === 'messageContextInfo') ? (m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || m.text) : ''
 
 let ordermessage = (m.xtype === 'conversation' && m.message.conversation) ? m.message.conversation : (m.xtype == 'imageMessage') && m.message.imageMessage.caption ? m.message.imageMessage.caption : (m.xtype == 'videoMessage') && m.message.videoMessage.caption ? m.message.videoMessage.caption : (m.xtype == 'extendedTextMessage') && m.message.extendedTextMessage.text.startsWith(prefix) ? m.message.extendedTextMessage.text : (m.xtype == 'buttonsResponseMessage') && m.message.buttonsResponseMessage.selectedButtonId.startsWith(prefix) ? m.message.buttonsResponseMessage.selectedButtonId : (m.xtype == 'listResponseMessage') && m.message.listResponseMessage.singleSelectReply.selectedRowId.startsWith(prefix) ? m.message.listResponseMessage.singleSelectReply.selectedRowId : (m.xtype == 'templateButtonReplyMessage') && m.message.templateButtonReplyMessage.selectedId.startsWith(prefix) ? m.message.templateButtonReplyMessage.selectedId : (m.xtype === 'interactiveResponseMessage') ? (JSON.parse(m.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id) : ''
-const body = (
-            m.mtype === "conversation" ? m.message.conversation :
-            m.mtype === "imageMessage" ? m.message.imageMessage.caption :
-            m.mtype === "videoMessage" ? m.message.videoMessage.caption :
-            m.mtype === "extendedTextMessage" ? m.message.extendedTextMessage.text :
-            m.mtype === "buttonsResponseMessage" ? m.message.buttonsResponseMessage.selectedButtonId :
-            m.mtype === "listResponseMessage" ? m.message.listResponseMessage.singleSelectReply.selectedRowId :
-            m.mtype === "templateButtonReplyMessage" ? m.message.templateButtonReplyMessage.selectedId :
-            m.mtype === "interactiveResponseMessage" ? JSON.parse(m.msg.nativeFlowResponseMessage.paramsJson).id :
-            m.mtype === "templateButtonReplyMessage" ? m.msg.selectedId :
-            m.mtype === "messageContextInfo" ? m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || m.text : "");
    let args = ordermessage.trim().split(/ +/).slice(1)
    const order = ordermessage.slice(0).trim().split(/ +/).shift().toLowerCase()	   
    let isCmd = ordermessage.startsWith(prefix)
@@ -14454,39 +14443,6 @@ case 'togura': {
     }
 }
 break
-
-case 'txttoimg':
-case 'texttoimage':
-case 'text2image':
-case 'txt2img': {
-    if (!text) return reply(`Contoh:\n${prefix + command} kucing lucu gaya ghibli`)
-
-    const apiXterm = {
-        url: "https://api.termai.cc",
-        key: "TermAI-4ALwMabCh0KiN9I3"
-    }
-
-    try {
-        const prompt = encodeURIComponent(text)
-        const url = `${apiXterm.url}/api/text2img/dalle3?prompt=${prompt}&key=${apiXterm.key}`
-
-        let res = await fetch(url)
-        if (!res.ok) return reply(`Gagal memproses, status: ${res.status}`)
-
-        let buffer = Buffer.from(await res.arrayBuffer())
-
-        await DinzBotz.sendMessage(m.chat, {
-            image: buffer,
-            caption: `✨ *Prompt:* ${text}`
-        }, { quoted: m })
-
-    } catch (err) {
-        console.error(err)
-        reply("Terjadi kesalahan saat generate gambar.")
-    }
-}
-break
-
 case 'fakestoryig':
 case 'fakestory': {
     if (!text) return reply(`Contoh: ${prefix + command} Lyrra`)
@@ -16164,8 +16120,278 @@ case 'ttsaudio': {
     }
 }
 break
+case 'yts': {
+    if (!text) return reply(`Kirim judul lagunya!\nContoh: ${prefix}yts Nemen Hiphop`)
+    
+    await DinzBotz.sendMessage(from, { react: { text: "🔍", key: m.key } })
 
+    let search = await yts(text)
+    let data = search.all.filter(v => v.type === 'video').slice(0, 10) 
+    
+    if (data.length === 0) return reply('Video tidak ditemukan.')
 
+    let cards = []
+
+    for (let i of data) {
+        let media = await prepareWAMessageMedia({ image: { url: i.thumbnail } }, { upload: DinzBotz.waUploadToServer })
+        
+        cards.push({
+            body: proto.Message.InteractiveMessage.Body.create({
+                text: `🎵 *${i.title}*\n\n⏳ Durasi: ${i.timestamp}\n👀 Views: ${i.views}\n👤 Channel: ${i.author.name}`
+            }),
+            footer: proto.Message.InteractiveMessage.Footer.create({
+                text: "DinzBotz Media"
+            }),
+            header: proto.Message.InteractiveMessage.Header.create({
+                title: "",
+                subtitle: "",
+                hasMediaAttachment: true,
+                imageMessage: media.imageMessage
+            }),
+            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+                buttons: [
+                    {
+                        name: "quick_reply",
+                        buttonParamsJson: JSON.stringify({
+                            display_text: "DOWNLOAD OPTIONS",
+                            id: `${prefix}play ${i.title}`
+                        })
+                    }
+                ]
+            })
+        })
+    }
+
+    let msg = generateWAMessageFromContent(from, {
+        viewOnceMessage: {
+            message: {
+                interactiveMessage: proto.Message.InteractiveMessage.create({
+                    body: proto.Message.InteractiveMessage.Body.create({ 
+                        text: `🔎 *YOUTUBE SEARCH RESULTS*\n\nKata Kunci: "${text}"\nTotal Hasil: ${data.length}\n\n_Geser ke samping untuk melihat hasil lainnya_ 👉` 
+                    }),
+                    footer: proto.Message.InteractiveMessage.Footer.create({ 
+                        text: "Powered by DinzBotz" 
+                    }),
+                    carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.create({
+                        cards: cards
+                    })
+                })
+            }
+        }
+    }, { userJid: from, quoted: m })
+
+    await DinzBotz.relayMessage(from, msg.message, { messageId: msg.key.id })
+    await DinzBotz.sendMessage(from, { react: { text: "✅", key: m.key } })
+}
+break
+case 'texttoimage':
+case 'txttoimg': {
+    if (!text) return reply(`Masukkan prompt gambar!\nContoh: ${prefix}epicrealism gunung meletus`)
+
+    let prompt = text
+
+    let msg = generateWAMessageFromContent(from, {
+        viewOnceMessage: {
+            message: {
+                interactiveMessage: proto.Message.InteractiveMessage.create({
+                    body: proto.Message.InteractiveMessage.Body.create({ text: `🎨 *EPIC REALISM AI*\n\nPrompt: "${prompt}"\n\nSilakan pilih rasio gambar:` }),
+                    footer: proto.Message.InteractiveMessage.Footer.create({ text: "DinzBotz AI" }),
+                    header: proto.Message.InteractiveMessage.Header.create({ title: "AI IMAGE GENERATOR", subtitle: "Select Ratio" }),
+                    nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+                        buttons: [
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "Square (1:1)",
+                                    id: `${prefix}epicrealismgen ${prompt}|1:1`
+                                })
+                            },
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "Portrait (9:16)",
+                                    id: `${prefix}epicrealismgen ${prompt}|9:16`
+                                })
+                            },
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "Landscape (16:9)",
+                                    id: `${prefix}epicrealismgen ${prompt}|16:9`
+                                })
+                            }
+                        ]
+                    })
+                })
+            }
+        }
+    }, { userJid: from, quoted: m })
+
+    await DinzBotz.relayMessage(from, msg.message, { messageId: msg.key.id })
+}
+break
+case 'epicrealismgen': {
+    if (!text.includes('|')) return
+
+    let [prompt, ratio] = text.split('|')
+    
+    await DinzBotz.sendMessage(from, { react: { text: "🎨", key: m.key } })
+
+    try {
+        let { data } = await axios.get(`https://rynekoo-api.vercel.app/image.gen/epic-realism?prompt=${encodeURIComponent(prompt)}&ratio=${ratio}`)
+        
+        if (data.success && data.result) {
+            await DinzBotz.sendMessage(from, { 
+                image: { url: data.result }, 
+                caption: `✅ *EPIC REALISM GENERATED*\n\nPrompt: ${prompt}\nRatio: ${ratio}` 
+            }, { quoted: m })
+            
+            await DinzBotz.sendMessage(from, { react: { text: "✅", key: m.key } })
+        } else {
+            reply('❌ Gagal membuat gambar.')
+        }
+    } catch (e) {
+        console.log(e)
+        reply('❌ Server error atau sedang limit.')
+    }
+}
+break
+case "bratvid":
+    case "bratvideo": {
+      if (!isPrem) return reply(mess.only.premium)
+      if (!text) return reply("[❗] Input teks tidak ditemukan! Kirim perintah dengan format: .bratvid <teks>");
+      DinzBotz.sendMessage(m.chat, {
+        react: {
+          text: `⏱️`,
+          key: m.key
+        }
+      })
+      try {
+        let brat = `https://api.siputzx.my.id/api/m/brat?text=${encodeURIComponent(text)}&isAnimated=true&delay=500`;
+        let response = await axios.get(brat, {
+          responseType: "arraybuffer"
+        });
+        let videoBuffer = response.data;
+        let stickerBuffer = await DinzBotz.sendVideoAsSticker(m.chat, videoBuffer, m, {
+          packname: global.packname,
+          author: global.author
+        });
+        console.log("Stiker berhasil dibuat:", stickerBuffer);
+      } catch (err) {
+        console.error("Error:", err);
+        reply("[❗] Maaf, terjadi kesalahan saat mencoba membuat stiker video. Silakan coba lagi.");
+      }
+    }
+    db.users[m.sender].exp += 300;
+    break;
+case 'swm':
+    case 'steal':
+    case 'stickerwm':
+    case 'take':
+    case 'wm': {
+
+      const getRandom = (ext) => {
+        return `${Math.floor(Math.random() * 10000)}${ext}`
+      }
+      let ahuh = args.join(' ').split('|')
+      let satu = ahuh[0] !== '' ? ahuh[0] : `yoy`
+      let dua = typeof ahuh[1] !== 'undefined' ? ahuh[1] : ``
+      let {
+        Sticker,
+        createSticker,
+        StickerTypes
+      } = require('wa-sticker-formatter')
+      let media = await DinzBotz.downloadAndSaveMediaMessage(quoted)
+      let jancok = new Sticker(media, {
+        pack: satu, 
+        author: dua, 
+        type: StickerTypes.FULL, 
+        categories: ['🤩', '🎉'], 
+        id: '12345', 
+        quality: 70, 
+        background: '#FFFFFF00' 
+      })
+      let stok = getRandom(".webp")
+      let nono = await jancok.toFile(stok)
+      let nah = fs.readFileSync(nono)
+      await DinzBotz.sendMessage(from, {
+        sticker: nah
+      }, {
+        quoted: m
+      })
+      await fs.unlinkSync(stok)
+      await fs.unlinkSync(media)
+    }
+    break
+case "cekidch":
+    case "idch": {
+      if (!text) return replyyoimiya("linkchnya")
+      if (!text.includes("https://whatsapp.com/channel/")) return replyyoimiya("Link tautan tidak valid")
+      let result = text.split('https://whatsapp.com/channel/')[1]
+      let res = await DinzBotz.newsletterMetadata("invite", result)
+      let teks = `
+* *ID :* ${res.id}
+* *Nama :* ${res.name}
+* *Total Pengikut :* ${res.subscribers}
+* *Status :* ${res.state}
+* *Verified :* ${res.verification == "VERIFIED" ? "Terverifikasi" : "Tidak"}
+`
+      return m.reply(teks)
+    }
+    db.users[m.sender].exp += 300;
+    break
+    case 'updatesc':
+case 'update': {
+    if (!isOwner) return reply('Khusus Owner!')
+
+    const MY_GIT_URL = "https://github.com/UsernameKamu/NamaRepoKamu" 
+
+    const { exec } = require('child_process')
+    const fs = require('fs')
+
+    reply('⏳ _Sedang memeriksa repository..._')
+
+    const updateScript = () => {
+        exec('git pull origin main', async (err, stdout, stderr) => {
+            if (err) return reply(`❌ Gagal Update: ${stderr}\n\nPastikan link repo benar dan tidak ada konflik file.`)
+            
+            if (stdout.includes('Already up to date')) {
+                return reply('✅ Script sudah versi terbaru.')
+            }
+
+            exec('git diff --name-only HEAD@{1} HEAD', async (err2, stdout2) => {
+                let changedFiles = stdout2 ? stdout2.trim().split('\n') : []
+                
+                let isSafe = changedFiles.every(f => f.trim() === 'msg.js')
+
+                if (isSafe && changedFiles.length > 0) {
+                    try {
+                        delete require.cache[require.resolve('./msg')]
+                        reply(`✨ *HOT RELOAD SUKSES*\n\n📄 File berubah: ${changedFiles.join(', ')}\n_Fitur baru sudah aktif tanpa restart!_`)
+                    } catch (e) {
+                        reply(`✅ Update Sukses! Bot Restarting...`)
+                        setTimeout(() => { process.exit() }, 3000)
+                    }
+                } else {
+                    await reply(`✅ *FULL UPDATE SUKSES*\n\n📄 File berubah:\n${changedFiles.map(f => '- ' + f).join('\n')}\n\n_Bot akan restart otomatis..._`)
+                    setTimeout(() => { process.exit() }, 3000)
+                }
+            })
+        })
+    }
+
+    if (!fs.existsSync('.git')) {
+        reply('⚙️ _Terdeteksi instalasi baru. Melakukan Auto-Setup Git..._')
+        
+        exec(`git init && git remote add origin ${MY_GIT_URL} && git branch -M main`, (errInit) => {
+            if (errInit) return reply(`❌ Gagal Auto-Setup: ${errInit.message}`)
+            updateScript()
+        })
+    } else {
+        updateScript()
+    }
+}
+break
 
 /* --tambah case disini-- */
   default:
