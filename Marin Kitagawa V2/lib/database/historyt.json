@@ -1,0 +1,34 @@
+[
+  {
+    "id": "TRANS1",
+    "productName": "panel unlimited",
+    "jumlah": 2,
+    "totalHarga": 10,
+    "status": "process",
+    "buyer": "6281543496975@s.whatsapp.net"
+  },
+  {
+    "id": "TRANS2",
+    "productName": "script alicia v2",
+    "jumlah": 1,
+    "totalHarga": 40,
+    "status": "success",
+    "buyer": "6281543496975@s.whatsapp.net"
+  },
+  {
+    "id": "TRANS3",
+    "productName": "Script Alice Assistent v12",
+    "jumlah": 1,
+    "totalHarga": 60000,
+    "status": "success",
+    "buyer": "6288246327669@s.whatsapp.net"
+  },
+  {
+    "id": "TRANS4",
+    "productName": "script alice assistent v12",
+    "jumlah": 1,
+    "totalHarga": 60000,
+    "status": "success",
+    "buyer": "6285194279456@s.whatsapp.net"
+  }
+]
