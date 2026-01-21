@@ -1,3 +1,5 @@
+// update
+
 const SETTING = require('../connection/setting')
 const keywords = require('../lib/validator/allKeywords')
 const similarity = require('similarity');
@@ -16340,58 +16342,171 @@ case "cekidch":
     }
     db.users[m.sender].exp += 300;
     break
-    case 'updatesc':
-case 'update': {
+case 'checkupdate': {
     if (!isOwner) return reply('Khusus Owner!')
-
-    const MY_GIT_URL = "https://github.com/UsernameKamu/NamaRepoKamu" 
-
-    const { exec } = require('child_process')
-    const fs = require('fs')
-
-    reply('⏳ _Sedang memeriksa repository..._')
-
-    const updateScript = () => {
-        exec('git pull origin main', async (err, stdout, stderr) => {
-            if (err) return reply(`❌ Gagal Update: ${stderr}\n\nPastikan link repo benar dan tidak ada konflik file.`)
-            
-            if (stdout.includes('Already up to date')) {
-                return reply('✅ Script sudah versi terbaru.')
-            }
-
-            exec('git diff --name-only HEAD@{1} HEAD', async (err2, stdout2) => {
-                let changedFiles = stdout2 ? stdout2.trim().split('\n') : []
-                
-                let isSafe = changedFiles.every(f => f.trim() === 'msg.js')
-
-                if (isSafe && changedFiles.length > 0) {
-                    try {
-                        delete require.cache[require.resolve('./msg')]
-                        reply(`✨ *HOT RELOAD SUKSES*\n\n📄 File berubah: ${changedFiles.join(', ')}\n_Fitur baru sudah aktif tanpa restart!_`)
-                    } catch (e) {
-                        reply(`✅ Update Sukses! Bot Restarting...`)
-                        setTimeout(() => { process.exit() }, 3000)
-                    }
-                } else {
-                    await reply(`✅ *FULL UPDATE SUKSES*\n\n📄 File berubah:\n${changedFiles.map(f => '- ' + f).join('\n')}\n\n_Bot akan restart otomatis..._`)
-                    setTimeout(() => { process.exit() }, 3000)
-                }
-            })
-        })
+    
+    let { gitConfig } = require('./git') 
+    
+    if (!gitConfig.owner || !gitConfig.repo) {
+        return reply(`⚠️ Konfigurasi GitHub belum diisi!\nSilakan edit file *git.js* dan isi owner serta nama repo.`)
     }
 
-    if (!fs.existsSync('.git')) {
-        reply('⚙️ _Terdeteksi instalasi baru. Melakukan Auto-Setup Git..._')
+    await DinzBotz.sendMessage(from, { react: { text: "🔍", key: m.key } })
+    
+    try {
+        let options = { headers: { 'User-Agent': 'Bot-WhatsApp' } }
+        if (gitConfig.token) options.headers['Authorization'] = `token ${gitConfig.token}`
+
+        let { data } = await axios.get(`https://api.github.com/repos/${gitConfig.owner}/${gitConfig.repo}/commits/main`, options)
+
+        let author = data.commit.author.name
+        let message = data.commit.message
+        let date = new Date(data.commit.author.date).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
         
-        exec(`git init && git remote add origin ${MY_GIT_URL} && git branch -M main`, (errInit) => {
-            if (errInit) return reply(`❌ Gagal Auto-Setup: ${errInit.message}`)
-            updateScript()
-        })
-    } else {
-        updateScript()
+        // --- LOGIKA FILTER FILE (MODIFIED & ADDED ONLY) ---
+        // Kita buang yang statusnya 'removed'
+        let incomingFiles = data.files.filter(f => f.status !== 'removed')
+
+        // Cek update msg.js dari list yang sudah difilter
+        let isMsgUpdate = incomingFiles.some(f => f.filename === 'msg.js') 
+            ? "⚠️ *ADA UPDATE DI MSG.JS*" 
+            : "✅ msg.js aman"
+
+        // Format Tampilan dengan Emoji Status
+        // 🆕 = File Baru (Added)
+        // 📝 = File Diedit (Modified/Renamed)
+        let fileList = incomingFiles.slice(0, 10).map(f => {
+            let icon = f.status === 'added' ? '🆕' : '📝'
+            return `${icon} ${f.filename}`
+        }).join('\n')
+
+        // Jika lebih dari 10 file
+        if (incomingFiles.length > 10) fileList += `\n...dan ${incomingFiles.length - 10} file lainnya.`
+        
+        // Kalau ternyata isinya cuma file yang dihapus (fileList kosong)
+        if (incomingFiles.length === 0) {
+            fileList = "_Hanya penghapusan file sampah (Cleaner)_"
+        }
+
+        let msg = generateWAMessageFromContent(from, {
+            viewOnceMessage: {
+                message: {
+                    interactiveMessage: proto.Message.InteractiveMessage.create({
+                        body: proto.Message.InteractiveMessage.Body.create({ 
+                            text: `📡 *INFO UPDATE TERBARU*\n\n` +
+                                  `📂 *Repo:* ${gitConfig.repo}\n` +
+                                  `👤 *Author:* ${author}\n` +
+                                  `📅 *Waktu:* ${date}\n` +
+                                  `📝 *Pesan:* "${message}"\n\n` +
+                                  `📂 *File Masuk (Upload/Edit):*\n${fileList}\n\n` +
+                                  `_${isMsgUpdate}_` 
+                        }),
+                        footer: proto.Message.InteractiveMessage.Footer.create({ text: "GitHub Config JS" }),
+                        header: proto.Message.InteractiveMessage.Header.create({ title: "UPDATE CHECKER", subtitle: "New Uploads Only" }),
+                        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+                            buttons: [
+                                {
+                                    name: "quick_reply",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "🚀 UPDATE SEKARANG",
+                                        id: `${prefix}update yakin`
+                                    })
+                                }
+                            ]
+                        })
+                    })
+                }
+            }
+        }, { userJid: from, quoted: m })
+
+        await DinzBotz.relayMessage(from, msg.message, { messageId: msg.key.id })
+
+    } catch (e) {
+        if (e.response && e.response.status === 404) return reply('❌ Repository tidak ditemukan! Cek file git.js.')
+        reply(`❌ Error: ${e.message}`)
     }
 }
 break
+case 'updatesc':
+case 'update': {
+    if (!isOwner) return reply('Khusus Owner!')
+    
+    const { exec } = require('child_process')
+    const fs = require('fs')
+    
+    let { gitConfig } = require('./git')
+    const MY_GIT_URL = `https://github.com/${gitConfig.owner}/${gitConfig.repo}.git`
+
+    if (!text.includes('yakin')) {
+        return reply(`⚠️ *KONFIRMASI*\n\nFitur ini akan mengupdate script bot, tapi **Database (Data User)** akan diamankan agar tidak terhapus.\n\nKetik *${prefix}update yakin* untuk memproses.`)
+    }
+
+    await DinzBotz.sendMessage(from, { react: { text: "🛡️", key: m.key } })
+    reply(`🛡️ _Mengamankan database & memulai update..._`)
+
+    try {
+        if (fs.existsSync('./database')) {
+            if (fs.existsSync('./database_backup')) fs.rmSync('./database_backup', { recursive: true, force: true })
+            fs.cpSync('./database', './database_backup', { recursive: true })
+        }
+    } catch (e) {
+        return reply(`❌ Gagal Backup Database: ${e.message}\nUpdate dibatalkan demi keamanan data.`)
+    }
+
+    const cmd = [
+        'git checkout database', 
+        'git pull origin main'
+    ].join(' && ')
+
+    exec(cmd, { timeout: 60000 }, (err, stdout, stderr) => {
+        
+        try {
+            if (fs.existsSync('./database_backup')) {
+                fs.rmSync('./database', { recursive: true, force: true })
+                fs.cpSync('./database_backup', './database', { recursive: true })
+                fs.rmSync('./database_backup', { recursive: true, force: true })
+            }
+        } catch (e) {
+            console.log('Restore Database Error:', e)
+        }
+
+        if (err) {
+            const cmdForce = [
+                `git remote set-url origin ${MY_GIT_URL}`,
+                'git fetch origin main',
+                'git reset --hard origin/main'
+            ].join(' && ')
+
+            return exec(cmdForce, { timeout: 60000 }, (err2, stdout2) => {
+                try {
+                    if (fs.existsSync('./database_backup')) {
+                        fs.rmSync('./database', { recursive: true, force: true }) 
+                        fs.cpSync('./database_backup', './database', { recursive: true })
+                        fs.rmSync('./database_backup', { recursive: true, force: true })
+                    }
+                } catch (e) {}
+
+                if (err2) return reply(`❌ Gagal Update Total: ${err2.message}`)
+                
+                reply(`✅ *FORCE UPDATE SUKSES*\n\nDatabase berhasil diamankan & Script telah diperbarui.\n_Bot restarting..._`)
+                setTimeout(() => { process.exit() }, 3000)
+            })
+        }
+
+        if (stdout.includes('Already up to date')) {
+            return reply('✅ *SUDAH VERSI TERBARU*\nScript aman, Database aman.')
+        }
+
+        let cleanLog = stdout.split('\n').filter(line => !line.includes('database/')).join('\n')
+
+        reply(`✅ *UPDATE SUKSES*\n\n📄 File berubah:\n${cleanLog}\n\n_Note: Database kamu aman tidak tersentuh._\n_Bot restarting..._`)
+        setTimeout(() => { process.exit() }, 3000)
+    })
+}
+break
+
+
+
 
 /* --tambah case disini-- */
   default:
