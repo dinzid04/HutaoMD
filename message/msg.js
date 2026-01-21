@@ -1,5 +1,4 @@
-// update
-
+//test
 const SETTING = require('../connection/setting')
 const keywords = require('../lib/validator/allKeywords')
 const similarity = require('similarity');
@@ -16434,76 +16433,87 @@ case 'update': {
     const { exec } = require('child_process')
     const fs = require('fs')
     
+    // Config
     let { gitConfig } = require('./git')
     const MY_GIT_URL = `https://github.com/${gitConfig.owner}/${gitConfig.repo}.git`
 
     if (!text.includes('yakin')) {
-        return reply(`⚠️ *KONFIRMASI*\n\nFitur ini akan mengupdate script bot, tapi **Database (Data User)** akan diamankan agar tidak terhapus.\n\nKetik *${prefix}update yakin* untuk memproses.`)
+        return reply(`⚠️ *KONFIRMASI*\n\nBot akan mencoba mengambil update terbaru saja (Smart Update).\nDatabase user akan diamankan.\n\nKetik *${prefix}update yakin* untuk gas.`)
     }
 
-    await DinzBotz.sendMessage(from, { react: { text: "🛡️", key: m.key } })
-    reply(`🛡️ _Mengamankan database & memulai update..._`)
-
-    try {
-        if (fs.existsSync('./database')) {
-            if (fs.existsSync('./database_backup')) fs.rmSync('./database_backup', { recursive: true, force: true })
-            fs.cpSync('./database', './database_backup', { recursive: true })
-        }
-    } catch (e) {
-        return reply(`❌ Gagal Backup Database: ${e.message}\nUpdate dibatalkan demi keamanan data.`)
+    await DinzBotz.sendMessage(from, { react: { text: "⏳", key: m.key } })
+    
+    // 1. FUNGSI AMANIN DATABASE
+    const backupDB = () => {
+        try {
+            if (fs.existsSync('./database')) {
+                // Hapus backup lama, buat backup baru
+                if (fs.existsSync('./database_backup')) fs.rmSync('./database_backup', { recursive: true, force: true })
+                fs.cpSync('./database', './database_backup', { recursive: true })
+            }
+        } catch (e) { return false } // Gagal backup
+        return true
     }
 
-    const cmd = [
-        'git checkout database', 
-        'git pull origin main'
-    ].join(' && ')
-
-    exec(cmd, { timeout: 60000 }, (err, stdout, stderr) => {
-        
+    // 2. FUNGSI BALIKIN DATABASE
+    const restoreDB = () => {
         try {
             if (fs.existsSync('./database_backup')) {
+                // Hapus folder database hasil update (yg mungkin reset)
                 fs.rmSync('./database', { recursive: true, force: true })
+                // Balikin database asli
                 fs.cpSync('./database_backup', './database', { recursive: true })
+                // Bersihkan backup
                 fs.rmSync('./database_backup', { recursive: true, force: true })
             }
-        } catch (e) {
-            console.log('Restore Database Error:', e)
+        } catch (e) {}
+    }
+
+    reply(`🔄 _Mencoba Smart Update..._`)
+    
+    // Amankan dulu
+    if (!backupDB()) return reply('❌ Gagal Backup Database. Update dibatalkan.')
+
+    // --- COBA CARA 1: GIT PULL (Update yang perlu aja) ---
+    // stash dulu perubahan lokal biar gak konflik, pull, lalu apply stash (kalau bisa)
+    exec('git pull origin main', { timeout: 60000 }, (err, stdout, stderr) => {
+        
+        // JIKA SUKSES
+        if (!err) {
+            restoreDB() // Pastikan DB aman
+            
+            if (stdout.includes('Already up to date')) {
+                return reply('✅ *SUDAH PALING BARU*\nTidak ada update baru di GitHub.')
+            }
+
+            // Bersihkan log biar enak dibaca
+            let cleanLog = stdout.trim()
+            
+            return reply(`✅ *BERHASIL UPDATE*\n\nHanya file ini yang diperbarui:\n\`\`\`\n${cleanLog}\n\`\`\`\n\n_Bot restarting..._`)
+                   .then(() => setTimeout(() => process.exit(), 3000))
         }
 
-        if (err) {
-            const cmdForce = [
-                `git remote set-url origin ${MY_GIT_URL}`,
-                'git fetch origin main',
-                'git reset --hard origin/main'
-            ].join(' && ')
+        // --- JIKA GAGAL (CONFLICT) -> PAKAI FORCE ---
+        console.log('Smart update gagal, switch ke Force update...')
+        
+        const cmdForce = [
+            `git remote set-url origin ${MY_GIT_URL}`,
+            'git fetch origin main',
+            'git reset --hard origin/main' // Timpa paksa script (database udah di-backup aman)
+        ].join(' && ')
 
-            return exec(cmdForce, { timeout: 60000 }, (err2, stdout2) => {
-                try {
-                    if (fs.existsSync('./database_backup')) {
-                        fs.rmSync('./database', { recursive: true, force: true }) 
-                        fs.cpSync('./database_backup', './database', { recursive: true })
-                        fs.rmSync('./database_backup', { recursive: true, force: true })
-                    }
-                } catch (e) {}
+        exec(cmdForce, { timeout: 60000 }, (err2, stdout2) => {
+            restoreDB() // Balikin DB User
 
-                if (err2) return reply(`❌ Gagal Update Total: ${err2.message}`)
-                
-                reply(`✅ *FORCE UPDATE SUKSES*\n\nDatabase berhasil diamankan & Script telah diperbarui.\n_Bot restarting..._`)
-                setTimeout(() => { process.exit() }, 3000)
-            })
-        }
-
-        if (stdout.includes('Already up to date')) {
-            return reply('✅ *SUDAH VERSI TERBARU*\nScript aman, Database aman.')
-        }
-
-        let cleanLog = stdout.split('\n').filter(line => !line.includes('database/')).join('\n')
-
-        reply(`✅ *UPDATE SUKSES*\n\n📄 File berubah:\n${cleanLog}\n\n_Note: Database kamu aman tidak tersentuh._\n_Bot restarting..._`)
-        setTimeout(() => { process.exit() }, 3000)
+            if (err2) return reply(`❌ Gagal Update: ${err2.message}`)
+            
+            reply(`✅ *FORCE UPDATE SUKSES*\n\nKarena ada konflik file manual, bot melakukan update total.\nSemua script disamakan dengan GitHub (Database Tetap Aman).\n\n_Bot restarting..._`)
+            setTimeout(() => { process.exit() }, 3000)
+        })
     })
 }
 break
+
 
 
 
