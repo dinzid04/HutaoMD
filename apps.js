@@ -32,11 +32,34 @@ const database = new DataBase();
 const { getBuffer } = require('./lib/function'); 
 const lidFile = './database/DataUserLid.json';
 let userLidDB = {};
+let isLidSyncedApps = false;
+
 try {
     if (fs.existsSync(lidFile)) {
         userLidDB = JSON.parse(fs.readFileSync(lidFile));
     }
 } catch (e) { console.error('Gagal load LID DB:', e) }
+
+const syncLidCache = (store) => {
+    if (isLidSyncedApps || !store || !store.contacts) return;
+    let added = 0;
+    try {
+        for (const [realJid, data] of Object.entries(store.contacts)) {
+            if (data.lid && !userLidDB[data.lid]) {
+                userLidDB[data.lid] = { jid: realJid };
+                added++;
+            }
+        }
+        if (added > 0) {
+            fs.writeFileSync(lidFile, JSON.stringify(userLidDB, null, 2));
+            console.log(chalk.green(`[APPS] Synced ${added} new LIDs from Store.`));
+        }
+        isLidSyncedApps = true;
+    } catch (e) {
+        console.error('Error syncing LID database in apps.js:', e);
+    }
+}
+
 (async () => {
 const loadData = await database.read()
 if (loadData && Object.keys(loadData).length === 0) {
@@ -272,31 +295,11 @@ const code = await DinzBotz.requestPairingCode(phoneNumber, custom);
 
                     if (m.key.remoteJid.endsWith('@lid')) {
                         const lid = m.key.remoteJid;
-                        let foundJid = null;
-                        let lidDb = {};
 
-                        try {
-                            if (fs.existsSync('./database/DataUserLid.json')) {
-                                lidDb = JSON.parse(fs.readFileSync('./database/DataUserLid.json'));
-                            }
-                        } catch (e) {}
+                        // Sync cache if not yet synced
+                        if (!isLidSyncedApps) syncLidCache(store);
 
-                        if (lidDb[lid] && lidDb[lid].jid) {
-                            foundJid = lidDb[lid].jid;
-                        } 
-                        else if (store && store.contacts) {
-                            if (store.contacts[lid]) {
-                                foundJid = store.contacts[lid].id;
-                            } else {
-                                const contact = Object.values(store.contacts).find(c => c.lid === lid);
-                                if (contact && contact.id) foundJid = contact.id;
-                            }
-
-                            if (foundJid) {
-                                lidDb[lid] = { jid: foundJid };
-                                fs.writeFileSync('./database/DataUserLid.json', JSON.stringify(lidDb, null, 2));
-                            }
-                        }
+                        let foundJid = userLidDB[lid] ? userLidDB[lid].jid : null;
 
                         if (foundJid) {
                             m.key.remoteJid = foundJid;
