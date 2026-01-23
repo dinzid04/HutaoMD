@@ -1352,7 +1352,10 @@ const loadPlugins = async (directory) => {
         }
     }
 }
-await loadPlugins('plugins')
+if (!global.isPluginsLoaded) {
+    await loadPlugins('plugins')
+    global.isPluginsLoaded = true
+}
 let pluginHandler = null
 if (global.plugins[command]) {
     pluginHandler = global.plugins[command]
