@@ -1,0 +1,46 @@
+{
+  "120363407427082044@g.us": {
+    "wa": true,
+    "tt": false,
+    "ig": false,
+    "fb": false,
+    "all": false,
+    "tagsw": true,
+    "action": "delete",
+    "custom": [
+      "https://whatsapp.com/channel",
+      "videy.com",
+      "puki"
+    ],
+    "warnings": {},
+    "msg_admin": "@user bebas, member suki",
+    "msg_warn": "⚠️ @user Dilarang mengirim link/tag sw di sini!",
+    "msg_kick": "⛔ @user Melanggar aturan 3x, selamat tinggal! 👋",
+    "image": false,
+    "video": true,
+    "sticker": false,
+    "nsfw": true,
+    "antibule": false,
+    "antitoxic": true
+  },
+  "120363418835782470@g.us": {
+    "wa": false,
+    "tt": false,
+    "ig": false,
+    "fb": false,
+    "all": false,
+    "tagsw": false,
+    "action": "delete",
+    "custom": [
+      "https://whatsapp.com/channel/"
+    ],
+    "warnings": {},
+    "msg_admin": "@user admin bebas wok",
+    "msg_warn": "woi puki suki @user, izin hapus, perintah etmin",
+    "msg_kick": "⛔ @user Melanggar aturan 3x, selamat tinggal! 👋",
+    "nsfw": false,
+    "image": false,
+    "video": false,
+    "sticker": false
+  }
+}
