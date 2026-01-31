@@ -1,0 +1,8 @@
+{
+  "status": false,
+  "mode": "delete",
+  "filter": "noprefix",
+  "max_msg": 6,
+  "cooldown": 4000,
+  "max_warn": 3
+}
