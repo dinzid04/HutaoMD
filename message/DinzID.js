@@ -1759,19 +1759,51 @@ if (m.isGroup && global.db.chats[m.chat].airdrop && !global.db.others.airdropAct
 
 
 //FUNCTION
-else if (new RegExp(`${ownerNumber}`, 'i').test(m.text)) {
-    if (!DinzTheCreator) {
-        await DinzBotz.sendMessage(m.chat, {
-            video: {
-                url: global.pvt
-            },
-            ptv: true
-        }, {
-            quoted: m
-        });
-    }
-}
+function pickRandom(list) {
+  return list[Math.floor(Math.random() * list.length)]
+} 
+const pathNews = './database/last_news.json'
+const pathSubs = './database/newsletter_groups.json'
+const URL_GITHUB_RAW = 'https://gist.githubusercontent.com/dinzid04/107a22ff9a3a8a0deb3af5e79b8b7a02/raw/notifications.json'
 
+if (!fs.existsSync(pathNews)) fs.writeFileSync(pathNews, JSON.stringify({ lastText: "" }))
+if (!fs.existsSync(pathSubs)) fs.writeFileSync(pathSubs, JSON.stringify([]))
+
+setInterval(async () => {
+    try {
+        const axios = require('axios')
+        const { data } = await axios.get(URL_GITHUB_RAW + '?t=' + Date.now())
+
+        if (!data || !data.text || !data.active) return
+
+        let dbNews = JSON.parse(fs.readFileSync(pathNews))
+        
+        if (dbNews.lastText !== data.text) {
+            
+            dbNews.lastText = data.text
+            fs.writeFileSync(pathNews, JSON.stringify(dbNews))
+
+            const subscribers = JSON.parse(fs.readFileSync(pathSubs))
+            
+            for (let idGroup of subscribers) {
+                try {
+                    if (data.image && data.image.startsWith('http')) {
+                        await DinzBotz.sendMessage(idGroup, { 
+                            image: { url: data.image }, 
+                            caption: data.text 
+                        })
+                    } else {
+                        await DinzBotz.sendMessage(idGroup, { text: data.text })
+                    }
+                    await new Promise(r => setTimeout(r, 2000))
+                } catch (err) {}
+            }
+        }
+    } catch (e) {
+        console.log(e.message)
+    }
+}, 60000
+)
 // --- DATABASE & SETUP ---
 const pathAdzan = './database/adzan_groups.json'
 const pathClose = './database/adzan_close.json'
@@ -17532,51 +17564,165 @@ case 'allmenu': {
 }
 break
 case 'rvo':
-case 'readviewonce': {
-    if (!m.quoted) return reply('Reply pesan View Once!')
-    
-    let msg = m.quoted.message
-    if (!msg) return reply('Gagal akses pesan. Coba reply ulang.')
+case 'readviewonce':
+case 'readvo': {
+    if (!m.quoted) return reply('Reply media View Once yang ingin dibuka.')
 
-    let keys = Object.keys(msg)
-    let type = keys.find(k => k === 'viewOnceMessageV2' || k === 'viewOnceMessage')
-    
-    let finalMsg = msg
-    let mediaType = ''
+    let mime = m.quoted.mimetype || ''
+    if (!/image|video|audio/.test(mime)) return reply('Media tidak didukung (Hanya Gambar/Video/Audio).')
 
-    if (type) {
-        finalMsg = msg[type].message
-        mediaType = Object.keys(finalMsg).find(k => k === 'imageMessage' || k === 'videoMessage' || k === 'audioMessage')
-    } else {
-        mediaType = keys.find(k => k === 'imageMessage' || k === 'videoMessage' || k === 'audioMessage')
-        if (!mediaType || !msg[mediaType].viewOnce) {
-            return reply('⚠️ Ini bukan pesan View Once (Sekali Lihat)!')
-        }
-    }
+    await DinzBotz.sendMessage(m.chat, { react: { text: "⏳", key: m.key } })
 
-    if (!mediaType) return reply('Tipe media tidak dikenali.')
-
-    let realType = mediaType === 'imageMessage' ? 'image' : mediaType === 'videoMessage' ? 'video' : 'audio'
-    
     try {
-        let stream = await downloadContentFromMessage(finalMsg[mediaType], realType)
-        let buffer = Buffer.from([])
-        for await (const chunk of stream) {
-            buffer = Buffer.concat([buffer, chunk])
+        let buffer = await m.quoted.download()
+        
+        if (/image/.test(mime)) {
+            await DinzBotz.sendMessage(m.chat, { 
+                image: buffer, 
+                caption: text || '' 
+            }, { quoted: m })
+        } else if (/video/.test(mime)) {
+            await DinzBotz.sendMessage(m.chat, { 
+                video: buffer, 
+                caption: text || '' 
+            }, { quoted: m })
+        } else if (/audio/.test(mime)) {
+            await DinzBotz.sendMessage(m.chat, { 
+                audio: buffer, 
+                mimetype: 'audio/mpeg', 
+                ptt: true 
+            }, { quoted: m })
         }
 
-        if (realType === 'video') {
-            await DinzBotz.sendMessage(m.chat, { video: buffer, caption: '🔓 Sukses Terbuka' }, { quoted: m })
-        } else if (realType === 'image') {
-            await DinzBotz.sendMessage(m.chat, { image: buffer, caption: '🔓 Sukses Terbuka' }, { quoted: m })
-        } else if (realType === 'audio') {
-            await DinzBotz.sendMessage(m.chat, { audio: buffer, ptt: true }, { quoted: m })
-        }
+        await DinzBotz.sendMessage(m.chat, { react: { text: "✅", key: m.key } })
 
-    } catch (err) {
-        console.log(err)
-        reply('❌ Gagal download media. Mungkin sudah kadaluarsa.')
+    } catch (e) {
+        console.log(e)
+        reply('Gagal mengambil media. Pastikan media belum kadaluarsa.')
     }
+}
+break
+case 'owner': {
+    const OWNER_NUMBER = global.owner// Ganti Nomor Kamu
+    const OWNER_NAME = global.ownername // Ganti Nama Kamu
+    const WEBSITE = "https://instagram.com/gadingkencana_04" // Ganti Link Sosmed/Web
+
+    await DinzBotz.sendMessage(m.chat, { react: { text: "👤", key: m.key } })
+
+    let ppOwner
+    try {
+        ppOwner = await DinzBotz.profilePictureUrl(`${OWNER_NUMBER}@s.whatsapp.net`, 'image')
+    } catch {
+        ppOwner = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png?q=60"
+    }
+
+    const { generateWAMessageFromContent, proto, prepareWAMessageMedia } = require('@whiskeysockets/baileys')
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                "messageContextInfo": {
+                    "deviceListMetadata": {},
+                    "deviceListMetadataVersion": 2
+                },
+                "interactiveMessage": {
+                    "body": {
+                        "text": `👋 *Halo Kak @${m.sender.split('@')[0]}*\n\nIni adalah kontak resmi *${OWNER_NAME}*.\nSilakan hubungi untuk keperluan:\n\n✅ Sewa Bot / Premium\n✅ Lapor Bug\n✅ Kerjasama\n\n_Dimohon untuk tidak melakukan spam call/chat._`
+                    },
+                    "footer": {
+                        "text": "© DinzBotz Corporation"
+                    },
+                    "header": {
+                        "title": "PROFILE OWNER",
+                        "subtitle": OWNER_NAME,
+                        "hasMediaAttachment": true,
+                        "imageMessage": (await prepareWAMessageMedia({ image: { url: ppOwner } }, { upload: DinzBotz.waUploadToServer })).imageMessage
+                    },
+                    "nativeFlowMessage": {
+                        "buttons": [
+                            {
+                                "name": "cta_url",
+                                "buttonParamsJson": JSON.stringify({
+                                    "display_text": "💬 CHAT WHATSAPP",
+                                    "url": `https://wa.me/${OWNER_NUMBER}?text=Halo+Bang+${OWNER_NAME}`
+                                })
+                            },
+                            {
+                                "name": "cta_url",
+                                "buttonParamsJson": JSON.stringify({
+                                    "display_text": "📸 INSTAGRAM",
+                                    "url": WEBSITE
+                                })
+                            },
+                            {
+                                "name": "cta_copy",
+                                "buttonParamsJson": JSON.stringify({
+                                    "display_text": "📋 COPY NOMOR",
+                                    "copy_code": OWNER_NUMBER
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { quoted: m })
+
+    await DinzBotz.relayMessage(m.chat, msg.message, { messageId: msg.key.id })
+}
+break
+case 'sc':
+case 'script':
+case 'sourcecode': {
+    const URL_IMAGE = "https://cdn.dinzid.biz.id/Gjwt.jpg"
+    const URL_YOUTUBE = "https://www.youtube.com/@DinzID"
+
+    await DinzBotz.sendMessage(m.chat, { react: { text: "📜", key: m.key } })
+
+    const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = require('@whiskeysockets/baileys')
+
+    const mediaMessage = await prepareWAMessageMedia({ 
+        image: { url: URL_IMAGE } 
+    }, { upload: DinzBotz.waUploadToServer })
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                "messageContextInfo": {
+                    "deviceListMetadata": {},
+                    "deviceListMetadataVersion": 2
+                },
+                "interactiveMessage": {
+                    "body": {
+                        "text": `👋 *Halo Kak @${m.sender.split('@')[0]}*\n\nBot ini menggunakan Base Script dari *DinzBotz*.\n\nUntuk mendapatkan update terbaru, tutorial, dan script gratis lainnya, silakan Subscribe channel YouTube resmi kami di bawah ini.\n\n_Stay tuned for more updates!_ 🚀`
+                    },
+                    "footer": {
+                        "text": "© DinzBotz Corporation"
+                    },
+                    "header": {
+                        "title": "SOURCE CODE INFO",
+                        "subtitle": "DinzBotz",
+                        "hasMediaAttachment": true,
+                        "imageMessage": mediaMessage.imageMessage
+                    },
+                    "nativeFlowMessage": {
+                        "buttons": [
+                            {
+                                "name": "cta_url",
+                                "buttonParamsJson": JSON.stringify({
+                                    "display_text": "📺 SUBSCRIBE YOUTUBE",
+                                    "url": URL_YOUTUBE,
+                                    "merchant_url": URL_YOUTUBE
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { quoted: m })
+
+    await DinzBotz.relayMessage(m.chat, msg.message, { messageId: msg.key.id })
 }
 break
 case 'promote':
@@ -22105,6 +22251,48 @@ case 'kicksider': {
         text: text, 
         mentions: allMentions 
     }, { quoted: m })
+}
+break
+case 'subupdate':{
+    if (!m.isGroup) return reply('Hanya untuk grup!')
+    if (!isAdmins && !isOwner) return reply('Khusus Admin/Owner!')
+
+    const fs = require('fs')
+    const pathSubs = './database/newsletter_groups.json'
+    
+    let db = JSON.parse(fs.readFileSync(pathSubs))
+    
+    if (db.includes(m.chat)) return reply('Grup ini sudah terdaftar menerima Update Bot.')
+    
+    db.push(m.chat)
+    fs.writeFileSync(pathSubs, JSON.stringify(db))
+    
+    reply('✅ Berhasil berlangganan notifikasi Update Bot!')
+}
+break
+case 'unsubupdate':{
+    if (!m.isGroup) return reply('Hanya untuk grup!')
+    if (!isAdmins && !isOwner) return reply('Khusus Admin/Owner!')
+
+    const fs = require('fs')
+    const pathSubs = './database/newsletter_groups.json'
+    let db = JSON.parse(fs.readFileSync(pathSubs))
+    
+    let index = db.indexOf(m.chat)
+    if (index === -1) return reply('Grup ini belum terdaftar.')
+    
+    db.splice(index, 1)
+    fs.writeFileSync(pathSubs, JSON.stringify(db))
+    
+    reply('❌ Berhenti berlangganan notifikasi Update.')
+}
+break
+case 'forceupdate': {
+    if (!isOwner) return reply('Khusus Owner')
+    const fs = require('fs')
+    const pathNews = './database/last_news.json'
+    fs.writeFileSync(pathNews, JSON.stringify({ lastText: "" }))
+    reply('Database reset. Bot akan membaca ulang GitHub dalam 1 menit.')
 }
 break
 
