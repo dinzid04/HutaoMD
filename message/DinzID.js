@@ -57,7 +57,9 @@ var ownerDb = JSON.parse(fs.readFileSync(ownerPath))
 global.ownerNumber = [...new Set([...global.ownerNumber, ...ownerDb])]
 const db_api = JSON.parse(fs.readFileSync('./database/api.json'));
 const afk = require("../lib/afk");
-let _afk = JSON.parse(fs.readFileSync("./database/afk.json"));
+const pathAfk = './database/afk.json'
+if (!fs.existsSync(pathAfk)) fs.writeFileSync(pathAfk, JSON.stringify([]))
+let _afk = JSON.parse(fs.readFileSync(pathAfk))
 const databasefile = './database/database/database.json';
 const userSpam = new Map()
 const userSpamWarning = new Map()
@@ -548,6 +550,13 @@ mention != undefined ? mention.push(mentionByreply) : []
       } catch (err) {
       console.error(err)
     }
+    
+const readTime = (ms) => {
+    let h = isNaN(ms) ? '--' : Math.floor(ms / 3600000)
+    let m = isNaN(ms) ? '--' : Math.floor(ms / 60000) % 60
+    let s = isNaN(ms) ? '--' : Math.floor(ms / 1000) % 60
+    return { hours: h, minutes: m, seconds: s }
+}    
 
 //FUNC BOT SETTING
 if (db.settings[botNumber].autoread) {
@@ -1807,16 +1816,17 @@ setInterval(async () => {
 // --- DATABASE & SETUP ---
 const pathAdzan = './database/adzan_groups.json'
 const pathClose = './database/adzan_close.json'
+const pathTracker = './database/adzan_tracker.json'
 
 if (!fs.existsSync(pathAdzan)) fs.writeFileSync(pathAdzan, JSON.stringify([]))
 if (!fs.existsSync(pathClose)) fs.writeFileSync(pathClose, JSON.stringify([]))
+if (!fs.existsSync(pathTracker)) fs.writeFileSync(pathTracker, JSON.stringify({ date: "", list: [] }))
 
-let adzanDailyCache = {}
-let manualTestSchedule = {}
+let manualSchedule = {}
 
 async function getJadwalSholat() {
     try {
-        const { data } = await axios.get('https://api.aladhan.com/v1/timingsByCity?city=Subang&country=Indonesia&method=8')
+        const { data } = await axios.get('https://api.aladhan.com/v1/timingsByCity?city=Jakarta&country=Indonesia&method=8')
         return data.data.timings
     } catch (e) {
         return { Fajr: "04:30", Dhuhr: "12:00", Asr: "15:15", Maghrib: "18:10", Isha: "19:20" }
@@ -1829,45 +1839,50 @@ setInterval(async () => {
     const timeNow = now.format('HH:mm')
     const dateNow = now.format('YYYY-MM-DD')
 
-    const jadwalAsli = await getJadwalSholat()
-    const jadwal = { ...jadwalAsli, ...manualTestSchedule }
+    let tracker = JSON.parse(fs.readFileSync(pathTracker))
+    if (tracker.date !== dateNow) {
+        tracker = { date: dateNow, list: [] }
+        fs.writeFileSync(pathTracker, JSON.stringify(tracker))
+    }
 
-    const dbAdzan = JSON.parse(fs.readFileSync(pathAdzan))
-    const dbClose = JSON.parse(fs.readFileSync(pathClose))
+    const jadwalAsli = await getJadwalSholat()
+    const jadwal = { ...jadwalAsli, ...manualSchedule }
 
     for (const [sholat, waktu] of Object.entries(jadwal)) {
-        const key = `${dateNow}-${sholat}`
-
-        if (timeNow === waktu && !adzanDailyCache[key]) {
-            adzanDailyCache[key] = true
+        if (timeNow === waktu && !tracker.list.includes(sholat)) {
             
-            if (manualTestSchedule[sholat]) delete manualTestSchedule[sholat]
+            tracker.list.push(sholat)
+            fs.writeFileSync(pathTracker, JSON.stringify(tracker))
+            
+            if (manualSchedule[sholat]) delete manualSchedule[sholat]
 
-            let thumbislam = "https://telegra.ph/file/687fd664f674e90ae1079.jpg"
-            if (sholat === "Fajr") thumbislam = "https://telegra.ph/file/b666be3c20c68d9bd0139.jpg"
-            else if (sholat === "Dhuhr") thumbislam = "https://telegra.ph/file/5295095dad53783b9cd64.jpg"
-            else if (sholat === "Asr") thumbislam = "https://telegra.ph/file/c0e1948ad75a2cba22845.jpg"
-            else if (sholat === "Maghrib") thumbislam = "https://telegra.ph/file/0082ad9c0e924323e08a6.jpg"
-            else if (sholat === "Isha") thumbislam = "https://telegra.ph/file/fd141833a983afa0a8412.jpg"
-            else if (sholat === "Test") thumbislam = "https://telegra.ph/file/687fd664f674e90ae1079.jpg"
+            const dbAdzan = JSON.parse(fs.readFileSync(pathAdzan))
+            const dbClose = JSON.parse(fs.readFileSync(pathClose))
+
+            let thumb = "https://telegra.ph/file/687fd664f674e90ae1079.jpg"
+            if (sholat === "Fajr") thumb = "https://telegra.ph/file/b666be3c20c68d9bd0139.jpg"
+            else if (sholat === "Dhuhr") thumb = "https://telegra.ph/file/5295095dad53783b9cd64.jpg"
+            else if (sholat === "Asr") thumb = "https://telegra.ph/file/c0e1948ad75a2cba22845.jpg"
+            else if (sholat === "Maghrib") thumb = "https://telegra.ph/file/0082ad9c0e924323e08a6.jpg"
+            else if (sholat === "Isha") thumb = "https://telegra.ph/file/fd141833a983afa0a8412.jpg"
 
             for (let idGroup of dbAdzan) {
                 try {
                     let isAutoClose = dbClose.includes(idGroup)
-                    let textBody = isAutoClose ? "Grup ditutup 5 menit untuk sholat." : "Segeralah mengambil air wudhu dan shalat."
+                    let textBody = isAutoClose ? "Grup ditutup 5 menit." : "Mari tunaikan sholat."
 
                     await DinzBotz.sendMessage(idGroup, {
                         audio: { url: "https://files.catbox.moe/0nj6pp.mp3" },
                         mimetype: 'audio/mpeg',
-                        fileName: `adzan.mp3`,
+                        fileName: 'adzan.mp3',
                         ptt: true,
                         contextInfo: {
                             externalAdReply: {
-                                title: `🕋 Waktu ${sholat} Telah Tiba`,
+                                title: `Waktu ${sholat} Telah Tiba`,
                                 body: textBody,
                                 mediaType: 1,
                                 renderLargerThumbnail: true,
-                                thumbnailUrl: thumbislam,
+                                thumbnailUrl: thumb,
                                 sourceUrl: "https://instagram.com/dinzbotz"
                             }
                         }
@@ -1876,23 +1891,24 @@ setInterval(async () => {
                     if (isAutoClose) {
                         try {
                             await DinzBotz.groupSettingUpdate(idGroup, 'announcement')
-                            await DinzBotz.sendMessage(idGroup, { text: `🔒 *GRUP DITUTUP SEMENTARA*\n\nSelamat menunaikan ibadah sholat ${sholat}.` })
+                            await DinzBotz.sendMessage(idGroup, { text: `🔒 *GRUP DITUTUP SEMENTARA*\n\nSelamat sholat ${sholat}.` })
                             
                             setTimeout(async () => {
                                 try {
                                     await DinzBotz.groupSettingUpdate(idGroup, 'not_announcement')
                                     await DinzBotz.sendMessage(idGroup, { text: `🔓 *GRUP DIBUKA KEMBALI*` })
-                                } catch (errOpen) {}
+                                } catch (e) {}
                             }, 5 * 60 * 1000) 
-                            
-                        } catch (errAdmin) {}
+                        } catch (e) {}
                     }
-                    await new Promise(r => setTimeout(r, 1000))
-                } catch (err) {}
+                    
+                    await new Promise(r => setTimeout(r, 1500))
+
+                } catch (e) {}
             }
         }
     }
-}, 5000)
+}, 10000)
 async function groupSatus(jid, content) {
   const inside = await generateWAMessageContent(content, {
     upload: DinzBotz.waUploadToServer
@@ -2444,35 +2460,52 @@ async function reply(txt) {
 
 
 //CONFIG AFK
-if (m.isGroup) {
-let mentionUser = [...new Set([...(m.mentionedJid || []), ...(m.quoted ? [m.quoted.sender] : [])])]
-for (let ment of mentionUser) {
-if (afk.checkAfkUser(ment, _afk)) {
-let getId2 = afk.getAfkId(ment, _afk)
-let getReason2 = afk.getAfkReason(getId2, _afk)
-let getTime = Date.now() - afk.getAfkTime(getId2, _afk)
-let heheh2 = await readTime(getTime)
-m.reply(` *[ ⛔ PERINGATAN ⛔ ]*
- 
- 📝 *Note :* Jangan tag dia kak, Dia sedang afk
- 💡 *Alasan* : ${getReason2}
- 🕛 *Selama* : ${heheh2.hours} jam, ${heheh2.minutes} menit, ${heheh2.seconds} detik yg lalu`)
-}
-}
+_afk = JSON.parse(fs.readFileSync(pathAfk)) 
 if (afk.checkAfkUser(m.sender, _afk)) {
-let getId = afk.getAfkId(m.sender, _afk)
-let getReason = afk.getAfkReason(getId, _afk)
-let getTime = Date.now() - afk.getAfkTime(getId, _afk)
-let heheh = await readTime(getTime)
-_afk.splice(afk.getAfkPosition(m.sender, _afk), 1)
-fs.writeFileSync('./database/afk.json', JSON.stringify(_afk))
-DinzBotz.sendTextWithMentions(m.chat,`*[ 👑 KEMBALI DARI AFK 👑 ]*
- 
- 👤 *User* : @${m.sender.split('@')[0]}
- 💡 *Alasan* : ${getReason}
- 🕛 *Selama* : ${heheh.hours} jam, ${heheh.minutes} menit, ${heheh.seconds} detik yg lalu`, m)
+    let getId = afk.getAfkId(m.sender, _afk)
+    let getReason = afk.getAfkReason(getId, _afk)
+    let getTime = Date.now() - afk.getAfkTime(getId, _afk)
+    let clock = readTime(getTime)
+    
+    _afk.splice(afk.getAfkPosition(m.sender, _afk), 1)
+    fs.writeFileSync('./database/afk.json', JSON.stringify(_afk))
+    
+    let teksKembali = `👑 *WELCOME BACK!*\n\n`
+    teksKembali += `Halo @${m.sender.split('@')[0]}\n`
+    teksKembali += `Kamu sudah kembali online.\n\n`
+    teksKembali += `📝 *Status:* Berhenti AFK\n`
+    teksKembali += `💡 *Alasan Awal:* ${getReason}\n`
+    teksKembali += `⏱️ *Durasi Offline:* ${clock.hours} jam, ${clock.minutes} menit, ${clock.seconds} detik`
+
+    await DinzBotz.sendMessage(m.chat, { 
+        text: teksKembali, 
+        contextInfo: { mentionedJid: [m.sender] }
+    }, { quoted: m })
 }
+
+if (m.isGroup && !m.key.fromMe) {
+    let mentionUser = [...new Set([...(m.mentionedJid || []), ...(m.quoted ? [m.quoted.sender] : [])])]
+    for (let jid of mentionUser) {
+        if (afk.checkAfkUser(jid, _afk) && jid !== m.sender) {
+            let getId2 = afk.getAfkId(jid, _afk)
+            let getReason2 = afk.getAfkReason(getId2, _afk)
+            let getTime = Date.now() - afk.getAfkTime(getId2, _afk)
+            let clock = readTime(getTime)
+            
+            let teksTag = `⛔ *JANGAN GANGGU* ⛔\n\n`
+            teksTag += `User @${jid.split('@')[0]} sedang tidak aktif (AFK).\n`
+            teksTag += `Mohon jangan tag dia dulu.\n\n`
+            teksTag += `📝 *Alasan:* ${getReason2}\n`
+            teksTag += `⏱️ *Sejak:* ${clock.hours} jam, ${clock.minutes} menit yang lalu`
+
+            await DinzBotz.sendMessage(m.chat, { 
+                text: teksTag, 
+                contextInfo: { mentionedJid: [jid] }
+            }, { quoted: m })
+        }
+    }
 }
+
 
 //EVALED & EXEC
 if (chatmessage.startsWith('<')) {
@@ -19309,54 +19342,6 @@ case 'gd': {
     }
 }
 break
-case 'facebook':
-case 'fbdl':
-case 'fb': {
-    if (!text) return reply(`Mana Link Facebook nya?\nContoh: ${prefix + command} https://www.facebook.com/share/r/xxxxx`)
-
-    const axios = require('axios')
-    await DinzBotz.sendMessage(m.chat, { react: { text: `⏳`, key: m.key } })
-
-    try {
-        let { data } = await axios.get(`https://api.vreden.my.id/api/v1/download/facebook?url=${text}`)
-
-        if (!data.status || !data.result) return reply('Video tidak ditemukan atau link bersifat privat.')
-
-        let meta = data.result
-        let videoUrl = meta.download.hd || meta.download.sd
-        let quality = meta.download.hd ? 'High Definition (HD)' : 'Standard Definition (SD)'
-
-        let caption = `📘 *FACEBOOK DOWNLOADER*
-
-📝 *Judul* : ${meta.title}
-⏱️ *Durasi* : ${meta.durasi}
-📊 *Kualitas* : ${quality}
-
-🚀 _Sedang mengirim video..._`
-
-        await DinzBotz.sendMessage(m.chat, {
-            video: { url: videoUrl },
-            caption: caption,
-            contextInfo: {
-                externalAdReply: {
-                    title: "Facebook Downloader",
-                    body: meta.title,
-                    thumbnailUrl: meta.thumbnail,
-                    sourceUrl: text,
-                    mediaType: 1,
-                    renderLargerThumbnail: true
-                }
-            }
-        }, { quoted: m })
-
-        await DinzBotz.sendMessage(m.chat, { react: { text: `✅`, key: m.key } })
-
-    } catch (e) {
-        console.log(e)
-        reply('Gagal mendownload video. Terjadi kesalahan pada server.')
-    }
-}
-break
 case 'buatclan':
 case 'createclan': {
     let user = global.db.users[m.sender]
@@ -22293,6 +22278,344 @@ case 'forceupdate': {
     const pathNews = './database/last_news.json'
     fs.writeFileSync(pathNews, JSON.stringify({ lastText: "" }))
     reply('Database reset. Bot akan membaca ulang GitHub dalam 1 menit.')
+}
+break
+case 'afk': {
+    let _afk = JSON.parse(fs.readFileSync('./database/afk.json'))
+    
+    if (afk.checkAfkUser(m.sender, _afk)) return reply('Kamu sudah dalam mode AFK sebelumnya.')
+    
+    let reason = text || 'Tanpa Alasan'
+    
+    afk.addAfkUser(m.sender, Date.now(), reason, _afk)
+    
+    let txt = `😴 *MODE AFK DIAKTIFKAN*\n\n`
+    txt += `User: @${m.sender.split('@')[0]}\n`
+    txt += `Status: Offline (Away From Keyboard)\n`
+    txt += `Waktu: ${new Date().toLocaleString()}\n\n`
+    txt += `📝 *Alasan:* ${reason}\n\n`
+    txt += `_Bot akan memberitahu siapa saja yang mencoba tag kamu._`
+    
+    await DinzBotz.sendMessage(m.chat, { 
+        text: txt, 
+        contextInfo: { mentionedJid: [m.sender] }
+    }, { quoted: m })
+}
+break
+case 'nulis':
+case 'magernulis': {
+    if (!text) return reply(`Ketik perintah:\n${prefix + command} Nama|Kelas|Teks\n\nContoh:\n${prefix + command} Dinz|12 IPA|Ini adalah tugas saya\n\nAtau simpel:\n${prefix + command} Ini tugas saya`)
+
+    await DinzBotz.sendMessage(m.chat, { react: { text: "✍️", key: m.key } })
+
+    let nama, kelas, isi
+
+    if (text.includes('|')) {
+        let args = text.split('|')
+        nama = args[0]
+        kelas = args[1] || '-'
+        isi = args[2] || '-'
+    } else {
+        nama = m.pushName || 'Member'
+        kelas = '-'
+        isi = text
+    }
+
+    let url = `https://api.apocalypse.web.id/canvas/nulis?nama=${encodeURIComponent(nama)}&kelas=${encodeURIComponent(kelas)}&text=${encodeURIComponent(isi)}`
+
+    await DinzBotz.sendMessage(m.chat, { 
+        image: { url: url }, 
+        caption: `✅ *NULIS BERHASIL*\n\n📝 Nama: ${nama}\n🏫 Kelas: ${kelas}` 
+    }, { quoted: m })
+}
+break
+case 'playv2':
+case 'lagu':
+case 'song': {
+    if (!text) return reply(`Ketik judul lagu.\nContoh: ${prefix + command} 505 Arctic Monkeys`)
+
+    await DinzBotz.sendMessage(m.chat, { react: { text: "🎧", key: m.key } })
+
+    const axios = require('axios')
+    
+    try {
+        let { data } = await axios.get(`https://api.apocalypse.web.id/download/play?q=${encodeURIComponent(text)}`)
+
+        if (!data.status || !data.result) return reply('Lagu tidak ditemukan.')
+
+        const res = data.result
+
+        let caption = `🎵 *DINZ MUSIC PLAYER*\n\n`
+        caption += `📌 *Judul:* ${res.title}\n`
+        caption += `🎤 *Channel:* ${res.channel}\n`
+        caption += `⏱️ *Durasi:* ${res.duration}\n`
+        caption += `👁️ *Views:* ${new Intl.NumberFormat().format(res.views)}\n`
+        caption += `💾 *Size:* ${(res.filesize / 1024 / 1024).toFixed(2)} MB\n\n`
+        caption += `_Audio sedang dikirim..._`
+
+        await DinzBotz.sendMessage(m.chat, { 
+            image: { url: res.thumbnail }, 
+            caption: caption 
+        }, { quoted: m })
+
+        await DinzBotz.sendMessage(m.chat, {
+            audio: { url: res.download_url },
+            mimetype: 'audio/mpeg',
+            fileName: `${res.title}.mp3`,
+            contextInfo: {
+                externalAdReply: {
+                    title: res.title,
+                    body: res.channel,
+                    thumbnailUrl: res.thumbnail,
+                    sourceUrl: res.download_url,
+                    mediaType: 1,
+                    renderLargerThumbnail: true
+                }
+            }
+        }, { quoted: m })
+
+        await DinzBotz.sendMessage(m.chat, { react: { text: "✅", key: m.key } })
+
+    } catch (e) {
+        console.log(e)
+        reply('Gagal mengambil lagu. Server sedang sibuk.')
+    }
+}
+break
+case 'resep':
+case 'recipe': {
+    if (!text) return reply(`Mau masak apa? Ketik nama makanannya.\nContoh: ${prefix + command} Nasi Goreng`)
+
+    await DinzBotz.sendMessage(m.chat, { react: { text: "👨‍🍳", key: m.key } })
+
+    const axios = require('axios')
+
+    try {
+        const { data } = await axios.get(`https://api.siputzx.my.id/api/s/resep?query=${encodeURIComponent(text)}`)
+
+        if (!data.status || !data.data || data.data.length === 0) return reply('Resep tidak ditemukan.')
+
+        let resep = data.data[0]
+
+        let caption = `👨‍🍳 *RESEP MASAKAN DITEMUKAN*\n\n`
+        caption += `🍲 *Menu:* ${resep.judul}\n`
+        caption += `⏱️ *Waktu:* ${resep.waktu_masak}\n`
+        caption += `📊 *Kesulitan:* ${resep.tingkat_kesulitan}\n`
+        caption += `🍽️ *Porsi:* ${resep.hasil}\n\n`
+        
+        caption += `🧂 *BAHAN-BAHAN:*\n`
+        caption += `${resep.bahan}\n\n`
+        
+        caption += `🔥 *LANGKAH MEMBUAT:*\n`
+        caption += `${resep.langkah_langkah}\n\n`
+        caption += `_Selamat Mencoba!_`
+
+        await DinzBotz.sendMessage(m.chat, { 
+            image: { url: resep.thumb }, 
+            caption: caption 
+        }, { quoted: m })
+
+        await DinzBotz.sendMessage(m.chat, { react: { text: "✅", key: m.key } })
+
+    } catch (e) {
+        console.log(e)
+        reply('Maaf, server resep sedang error.')
+    }
+}
+break
+case 'gsmarena':
+case 'spek':
+case 'spesifikasi': {
+    if (!text) return reply(`Mau cari HP apa? Ketik nama HP-nya.\nContoh: ${prefix + command} iPhone 15 Pro`)
+
+    await DinzBotz.sendMessage(m.chat, { react: { text: "📱", key: m.key } })
+
+    const axios = require('axios')
+
+    try {
+        const { data } = await axios.get(`https://api.siputzx.my.id/api/s/gsmarena?query=${encodeURIComponent(text)}`)
+
+        if (!data.status || !data.data || data.data.length === 0) return reply('HP tidak ditemukan.')
+
+        let hp = data.data[0]
+
+        let caption = `📱 *SPESIFIKASI HP*\n\n`
+        caption += `📌 *Nama:* ${hp.name}\n`
+        caption += `📝 *Ringkasan Spesifikasi:*\n${hp.description}\n\n`
+        caption += `_Data from GSMArena_`
+
+        await DinzBotz.sendMessage(m.chat, { 
+            image: { url: hp.thumbnail }, 
+            caption: caption 
+        }, { quoted: m })
+
+        await DinzBotz.sendMessage(m.chat, { react: { text: "✅", key: m.key } })
+
+    } catch (e) {
+        console.log(e)
+        reply('Maaf, server sedang error.')
+    }
+}
+break
+case 'openai':
+case 'claude':
+case 'gpt':
+case 'ai':
+case 'tanya': {
+    if (!text) return reply(`Mau tanya apa? Ketik ${prefix + command} Siapa presiden Indonesia?`)
+
+    const blockedWords = [
+        'addowner', 
+        'addprem', 
+        '.addowner', 
+        'addown', 
+        'addpremium',
+        'jadi owner',
+        'kasih akses',
+        'give owner'
+    ]
+
+    if (blockedWords.some(word => text.toLowerCase().includes(word))) {
+        await DinzBotz.sendMessage(m.chat, { react: { text: "🚫", key: m.key } })
+        return reply("❌ *PERMINTAAN DITOLAK*\n\nMaaf, saya tidak bisa memproses perintah yang berkaitan dengan akses sistem owner atau premium.")
+    }
+
+    await DinzBotz.sendMessage(m.chat, { react: { text: "🧠", key: m.key } })
+
+    const axios = require('axios')
+
+    try {
+        const { data } = await axios.get(`https://rynekoo-api.hf.space/text.gen/gpt/5-nano?text=${encodeURIComponent(text)}`)
+
+        if (!data.success || !data.result) return reply("Maaf, AI sedang tidak dapat merespon saat ini.")
+
+        reply(`🤖*\n\n${data.result}`)
+
+        await DinzBotz.sendMessage(m.chat, { react: { text: "✅", key: m.key } })
+
+    } catch (e) {
+        reply("Maaf, server AI sedang sibuk atau down.")
+    }
+}
+break
+case 'gemini':
+case 'bard': {
+    if (!text) return reply(`Mau tanya apa ke Gemini? Ketik ${prefix + command} Halo`)
+
+    const blockedWords = [
+        'addowner', 
+        'addprem', 
+        '.addowner', 
+        'addown', 
+        'addpremium',
+        'jadi owner',
+        'kasih akses',
+        'give owner'
+    ]
+
+    if (blockedWords.some(word => text.toLowerCase().includes(word))) {
+        await DinzBotz.sendMessage(m.chat, { react: { text: "🚫", key: m.key } })
+        return reply("❌ *PERMINTAAN DITOLAK*\n\nMaaf, saya tidak bisa memproses perintah yang berkaitan dengan akses sistem owner atau premium.")
+    }
+
+    await DinzBotz.sendMessage(m.chat, { react: { text: "✨", key: m.key } })
+
+    const axios = require('axios')
+
+    try {
+        const { data } = await axios.get(`https://rynekoo-api.hf.space/text.gen/gemini/realtime?text=${encodeURIComponent(text)}`)
+
+        if (!data.success || !data.result) return reply("Maaf, Gemini sedang tidak dapat merespon saat ini.")
+
+        reply(`✨ *GEMINI AI*\n\n${data.result.text}`)
+
+        await DinzBotz.sendMessage(m.chat, { react: { text: "✅", key: m.key } })
+
+    } catch (e) {
+        reply("Maaf, server Gemini sedang sibuk atau down.")
+    }
+}
+break
+
+case 'copilot':
+case 'bing': {
+    if (!text) return reply(`Mau tanya apa ke Copilot? Ketik ${prefix + command} Apa kabar?`)
+
+    const blockedWords = [
+        'addowner', 
+        'addprem', 
+        '.addowner', 
+        'addown', 
+        'addpremium',
+        'jadi owner',
+        'kasih akses',
+        'give owner'
+    ]
+
+    if (blockedWords.some(word => text.toLowerCase().includes(word))) {
+        await DinzBotz.sendMessage(m.chat, { react: { text: "🚫", key: m.key } })
+        return reply("❌ *PERMINTAAN DITOLAK*\n\nMaaf, saya tidak bisa memproses perintah yang berkaitan dengan akses sistem owner atau premium.")
+    }
+
+    await DinzBotz.sendMessage(m.chat, { react: { text: "✈️", key: m.key } })
+
+    const axios = require('axios')
+
+    try {
+        const { data } = await axios.get(`https://rynekoo-api.hf.space/text.gen/copilot?text=${encodeURIComponent(text)}`)
+
+        if (!data.success || !data.result) return reply("Maaf, Copilot sedang tidak dapat merespon saat ini.")
+
+        reply(`✈️ *MICROSOFT COPILOT*\n\n${data.result.text}`)
+
+        await DinzBotz.sendMessage(m.chat, { react: { text: "✅", key: m.key } })
+
+    } catch (e) {
+        reply("Maaf, server Copilot sedang sibuk atau down.")
+    }
+}
+break
+case 'fb':
+case 'facebook':
+case 'fbdl': {
+    if (!text) return reply(`Kirim link Facebook.\nContoh: ${prefix + command} https://www.facebook.com/share/v/xxxx`)
+
+    await DinzBotz.sendMessage(m.chat, { react: { text: "⬇️", key: m.key } })
+
+    const axios = require('axios')
+
+    try {
+        const { data } = await axios.get(`https://api-faa.my.id/faa/fbdownload?url=${encodeURIComponent(text)}`)
+
+        if (!data.status || !data.result) return reply("Konten tidak ditemukan atau link bersifat privat.")
+
+        const res = data.result
+        const media = res.media
+        const info = res.info
+
+        let caption = `✅ *FACEBOOK DOWNLOADER*\n\n`
+        caption += `📝 *Judul:* ${info.title || 'Tidak ada judul'}\n`
+        caption += `🔗 *Link:* ${info.permalink_url || text}`
+
+        if (media.video_hd || media.video_sd) {
+            await DinzBotz.sendMessage(m.chat, { 
+                video: { url: media.video_hd || media.video_sd }, 
+                caption: caption 
+            }, { quoted: m })
+        } else if (media.photo_image) {
+            await DinzBotz.sendMessage(m.chat, { 
+                image: { url: media.photo_image }, 
+                caption: caption 
+            }, { quoted: m })
+        } else {
+            reply("Media tidak ditemukan dalam link tersebut.")
+        }
+
+        await DinzBotz.sendMessage(m.chat, { react: { text: "✅", key: m.key } })
+
+    } catch (e) {
+        reply("Gagal mendownload. Pastikan link benar.")
+    }
 }
 break
 
